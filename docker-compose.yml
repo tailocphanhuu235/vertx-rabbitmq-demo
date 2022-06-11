@@ -1,0 +1,36 @@
+version: '3'
+services:
+  rabbitmq-server:
+    container_name: "rabbitmq-server"
+    image: rabbitmq:3-management
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_USER=momo
+      - RABBITMQ_DEFAULT_PASS=momo
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  # producer-server:
+  #   container_name: producer-server
+  #   image: producer-server
+  #   build:
+  #     context: ./vertx-producer
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8080:8080"
+  #   restart: always
+  #   depends_on:
+  #     - rabbitmq
+  
+  # consumer-server:
+  #   container_name: consumer-server
+  #   image: consumer-server
+  #   build:
+  #     context: ./vertx-consumer
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8080:8080"
+  #   restart: always
+  #   depends_on:
+  #     - rabbitmq
