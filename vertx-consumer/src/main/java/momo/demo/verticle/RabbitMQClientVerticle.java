@@ -7,6 +7,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.rabbitmq.QueueOptions;
 import io.vertx.rabbitmq.RabbitMQClient;
 import io.vertx.rabbitmq.RabbitMQConsumer;
 import io.vertx.rabbitmq.RabbitMQOptions;
@@ -57,31 +58,33 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
     private Future<Void> consumeRequestQueue() {
         LOGGER.info("Consumer: consumeRequestQueue()");
         Promise<Void> consumeRequestQueue = Promise.promise();
-        rabbitMQClient.basicConsumer(MomoConstant.REQUEST_QUEUE, consumerResult -> {
-            if (consumerResult.succeeded()) {
-                LOGGER.info("Consumer: RabbitMQ consumer created !");
-                RabbitMQConsumer consumer = consumerResult.result();
+        rabbitMQClient.basicConsumer(MomoConstant.REQUEST_QUEUE,
+                new QueueOptions().setAutoAck(true), consumerResult -> {
+                    if (consumerResult.succeeded()) {
+                        LOGGER.info("Consumer: RabbitMQ consumer MomoConstant.REQUEST_QUEUE created !");
+                        RabbitMQConsumer consumer = consumerResult.result();
 
-                consumer.handler(msg -> {
-                    String json = msg.body().toString();
-                    LOGGER.info("Consumer: Got response message: " + json);
-                    vertx.eventBus().request(MomoConstant.REQUEST_EVENT_BUS, json, result -> {
-                        LOGGER.info("Consumer: Send to request event bus: " + json);
-                        if (result.succeeded()) {
-                            consumeRequestQueue.tryComplete();
-                        }
-                        else {
-                            result.cause().printStackTrace();
-                            consumeRequestQueue.fail(result.cause());
-                        }
-                    });
+                        consumer.handler(msg -> {
+                            String json = msg.body().toString();
+                            LOGGER.info("Consumer: Got response message from MomoConstant.REQUEST_QUEUE: " + json);
+                            vertx.eventBus().request(MomoConstant.REQUEST_EVENT_BUS, json,
+                                    result -> {
+                                        LOGGER.info("Consumer: Send to request event bus: " + json);
+                                        if (result.succeeded()) {
+                                            consumeRequestQueue.tryComplete();
+                                        }
+                                        else {
+                                            result.cause().printStackTrace();
+                                            consumeRequestQueue.tryFail(result.cause());
+                                        }
+                                    });
+                        });
+                    }
+                    else {
+                        consumerResult.cause().printStackTrace();
+                        consumeRequestQueue.fail(consumerResult.cause());
+                    }
                 });
-            }
-            else {
-                consumerResult.cause().printStackTrace();
-                consumeRequestQueue.fail(consumerResult.cause());
-            }
-        });
 
         return consumeRequestQueue.future();
     }
@@ -100,9 +103,9 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
                             consumeRequestEventBusPromise.tryComplete();
                         }
                         else {
-                            LOGGER.info("Consumer: Message publish failed !");
+                            LOGGER.info("Consumer: Message publish to RESPONSE_QUEUE failed !");
                             pubResult.cause().printStackTrace();
-                            consumeRequestEventBusPromise.fail(pubResult.cause());
+                            consumeRequestEventBusPromise.tryFail(pubResult.cause());
                         }
                     });
             msg.reply("Consumer: RESPONSE_EVENT_BUS is received message");
