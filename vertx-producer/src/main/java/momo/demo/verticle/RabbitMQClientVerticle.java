@@ -22,20 +22,31 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
     public void start(Promise<Void> startPromise) throws Exception {
         LOGGER.info("Producer: start()");
         RabbitMQOptions config = new RabbitMQOptions();
-        config.setUri(MomoConstant.RABBIT_URI);
+//        config.setUri(MomoConstant.RABBIT_URI);
+        config.setUser("momo");
+        config.setPassword("momo");
+        config.setHost("localhost");
+        config.setPort(5672);
+        config.setVirtualHost("vhost1");
+        config.setConnectionTimeout(6000); // in milliseconds
+        config.setRequestedHeartbeat(60); // in seconds
+        config.setHandshakeTimeout(6000); // in milliseconds
+        config.setRequestedChannelMax(5);
+        config.setNetworkRecoveryInterval(500); // in milliseconds
+        config.setAutomaticRecoveryEnabled(true);
 
         this.rabbitMQClient = RabbitMQClient.create(vertx, config);
         this.rabbitMQClient.addConnectionEstablishedCallback(promise -> {
             this.rabbitMQClient.exchangeDeclare(MomoConstant.TAXI_EXCHANGE,
                     MomoConstant.DIRECT_EXCHANGE_TYPE, true, false).compose(c1 -> {
                         return rabbitMQClient.queueDeclare(MomoConstant.REQUEST_QUEUE, true, false,
-                                false);
+                                true);
                     }).compose(c2 -> {
                         return rabbitMQClient.queueBind(c2.getQueue(), MomoConstant.TAXI_EXCHANGE,
                                 MomoConstant.REQUEST_ROUTING_KEY);
                     }).compose(c3 -> {
                         return rabbitMQClient.queueDeclare(MomoConstant.RESPONSE_QUEUE, true, false,
-                                false);
+                                true);
                     }).compose(c4 -> {
                         return rabbitMQClient.queueBind(c4.getQueue(), MomoConstant.TAXI_EXCHANGE,
                                 MomoConstant.RESPONSE_ROUTING_KEY);
@@ -83,7 +94,7 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
             LOGGER.info("Producer: REQUEST_EVENT_BUS is received message : " + msg.address() + ": "
                     + msg.body());
             Buffer message = Buffer.buffer((String) msg.body());
-            rabbitMQClient.basicPublish(MomoConstant.TAXI_EXCHANGE, MomoConstant.REQUEST_QUEUE,
+            rabbitMQClient.basicPublish(MomoConstant.TAXI_EXCHANGE, MomoConstant.REQUEST_ROUTING_KEY,
                     message, pubResult -> {
                         if (pubResult.succeeded()) {
                             LOGGER.info(
@@ -124,10 +135,10 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
                                     result -> {
                                         LOGGER.info("Producer: Return client: " + data);
                                         if (result.succeeded()) {
-                                            consumeRequestQueue.tryComplete();
+                                            consumeRequestQueue.complete();
                                         }
                                         else {
-                                            consumeRequestQueue.tryFail(result.cause());
+                                            consumeRequestQueue.fail(result.cause());
                                         }
                                     });
                         });

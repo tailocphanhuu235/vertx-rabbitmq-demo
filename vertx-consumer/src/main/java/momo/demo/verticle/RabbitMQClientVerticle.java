@@ -22,7 +22,18 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
     public void start(Promise<Void> startPromise) throws Exception {
         LOGGER.info("Consumer: start()");
         RabbitMQOptions config = new RabbitMQOptions();
-        config.setUri(MomoConstant.RABBIT_URI);
+//        config.setUri(MomoConstant.RABBIT_URI);
+        config.setUser("momo");
+        config.setPassword("momo");
+        config.setHost("localhost");
+        config.setPort(5672);
+        config.setVirtualHost("vhost1");
+        config.setConnectionTimeout(6000); // in milliseconds
+        config.setRequestedHeartbeat(60); // in seconds
+        config.setHandshakeTimeout(6000); // in milliseconds
+        config.setRequestedChannelMax(5);
+        config.setNetworkRecoveryInterval(500); // in milliseconds
+        config.setAutomaticRecoveryEnabled(true);
 
         this.rabbitMQClient = RabbitMQClient.create(vertx, config);
 
@@ -96,16 +107,16 @@ public class RabbitMQClientVerticle extends AbstractVerticle {
             LOGGER.info("Consumer: RESPONSE_EVENT_BUS is received message : " + msg.address() + ": "
                     + msg.body());
             Buffer message = Buffer.buffer((String) msg.body());
-            rabbitMQClient.basicPublish(MomoConstant.TAXI_EXCHANGE, MomoConstant.RESPONSE_QUEUE,
+            rabbitMQClient.basicPublish(MomoConstant.TAXI_EXCHANGE, MomoConstant.RESPONSE_ROUTING_KEY,
                     message, pubResult -> {
                         if (pubResult.succeeded()) {
                             LOGGER.info("Consumer: Message published to RESPONSE_QUEUE !");
-                            consumeRequestEventBusPromise.tryComplete();
+                            consumeRequestEventBusPromise.complete();
                         }
                         else {
                             LOGGER.info("Consumer: Message publish to RESPONSE_QUEUE failed !");
                             pubResult.cause().printStackTrace();
-                            consumeRequestEventBusPromise.tryFail(pubResult.cause());
+                            consumeRequestEventBusPromise.fail(pubResult.cause());
                         }
                     });
             msg.reply("Consumer: RESPONSE_EVENT_BUS is received message");
